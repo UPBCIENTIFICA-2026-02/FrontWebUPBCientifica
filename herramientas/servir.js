@@ -6,12 +6,16 @@
  * script solo sirve para trabajar en el front desde un portátil:
  *
  *   node herramientas/servir.js
- *       Sirve la interfaz en http://localhost:5173. Úsala con
- *       "Entrar en modo demostración".
+ *       Sirve la interfaz en http://localhost:5173 y reenvía /api y /salud al
+ *       node-web de este mismo PC (http://localhost:8080), así la interfaz
+ *       habla con los servicios de verdad sin problemas de CORS.
  *
  *   NODE_WEB=http://192.168.1.50:8080 node herramientas/servir.js
- *       Además reenvía /api y /salud a un node-web real, así la interfaz
- *       habla con los servicios de verdad sin problemas de CORS.
+ *       Igual, pero contra el node-web de otra máquina.
+ *
+ *   NODE_WEB=ninguno node herramientas/servir.js
+ *       Sin servicios: solo sirve con "Entrar en modo demostración" (que
+ *       index.html desactiva con PERMITIR_DEMO: false).
  *
  * Sin dependencias: solo módulos que trae Node.js.
  */
@@ -23,7 +27,10 @@ import { fileURLToPath } from "node:url";
 
 const RAIZ = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const PUERTO = Number(process.env.PORT || 5173);
-const NODE_WEB = process.env.NODE_WEB ? new URL(process.env.NODE_WEB) : null;
+// Por defecto, el node-web local: sin él la pantalla de inicio de sesión no
+// puede entrar (y el modo demostración está desactivado en index.html).
+const valorNodeWeb = process.env.NODE_WEB ?? "http://localhost:8080";
+const NODE_WEB = valorNodeWeb && valorNodeWeb !== "ninguno" ? new URL(valorNodeWeb) : null;
 
 const TIPOS = {
   ".html": "text/html; charset=utf-8",

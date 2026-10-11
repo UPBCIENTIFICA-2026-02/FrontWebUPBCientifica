@@ -31,7 +31,7 @@ El contrato completo que node-web debe cumplir está en
 | Distributed Storage | node-repository :8084 | **Listo**: listar, navegar, subir (botón o arrastrando), crear carpeta, descargar, eliminar, cuota |
 | Photo Album | node-media :8083 | **Listo**: rejilla, orden, álbumes, indexar, visor a pantalla completa |
 | Streaming | node-media :8083 | **Listo**: catálogo, búsqueda, reproducción por rangos |
-| HPC | job-api :8082 → gestor RMI | **Listo** con el contrato real (código fuente + dataset + procesos MPI) |
+| HPC | job-api :8082 → gestor RMI | Listar y cancelar: **listo**. Enviar y tarjeta del clúster: **bloqueado** — el front sigue `Contrato_HPC`, pero job-api aún pide `comando` y no tiene `/cluster/estado` (ver Pendientes) |
 | Shared File | — | **Simulado**: el servicio no existe en el backend; la pantalla lo avisa |
 | Monitoreo | Grafana (node-monitoreo) | Abre el tablero en otra pestaña (`URL_MONITOREO`) |
 | File Sync | — | No aplica: el navegador no sincroniza carpetas |
@@ -47,8 +47,12 @@ node herramientas/servir.js
 Abre `http://localhost:5173` y entra con **"Entrar en modo demostración"**:
 todas las pantallas funcionan con datos de ejemplo, sin servidor.
 
-Para hablar con los servicios reales, apunta el servidor de desarrollo a un
-node-web que ya tenga la pasarela:
+Para hablar con los servicios reales, lo más simple es abrir **node-web**
+directamente (`http://<node-web>:8080`): sirve esta interfaz y la pasarela en el
+mismo origen. Arrancado con `DIR_INTERFAZ=<ruta de este repositorio>`, sirve los
+archivos de aquí y los cambios se ven al recargar.
+
+O bien, apunta el servidor de desarrollo a node-web:
 
 ```bash
 NODE_WEB=http://192.168.1.50:8080 node herramientas/servir.js
@@ -62,8 +66,9 @@ NODE_WEB=http://192.168.1.50:8080 node herramientas/servir.js
 ## Desplegar
 
 En la VM node-web, esta carpeta es el contenido estático que entrega
-`servidor-web.js` (hoy lo hace desde `public/`). Copiar `index.html`,
-`spa-ui.js`, `estilos/` y `src/` a esa carpeta, o apuntar `express.static` aquí.
+`servidor-web.js` desde `public/`. En el monorepo, `cd node-web && npm run interfaz`
+copia `index.html`, `spa-ui.js`, `estilos/` y `src/` a `public/` y anota el commit
+de origen en `public/ORIGEN.txt`. Los cambios se hacen aquí, no en `public/`.
 
 Ajustes del despliegue sin tocar código, en `index.html`:
 
@@ -111,11 +116,11 @@ Si un contrato cambia, se toca `datos/`, nunca `ui/`.
 
 ## Diferencias deliberadas con el móvil
 
-1. **Formulario de HPC.** El móvil pide un *comando* porque su `HpcRepository`
-   es simulado. El job-api real ya no acepta comandos (auditoría de seguridad,
-   `SubmitJobRequest.java`): pide el código fuente y el dataset ya subidos a
-   Storage, el número de procesos MPI y la prioridad. La web sigue el contrato
-   real; se eligen los archivos navegando Mis archivos.
+1. **Formulario de HPC.** El móvil pide un *comando*. La web sigue
+   `Contrato_HPC`: el código fuente y el dataset ya subidos a Storage, el número
+   de procesos MPI y la prioridad; se eligen los archivos navegando Mis archivos.
+   **Ojo:** el job-api actual de `RMIUPBCientifica` todavía exige `comando`
+   (`SubmitJobRequest.java`) y rechaza este formulario con 400.
 2. **Franja del inicio.** En el móvil resume File Sync. El navegador no
    sincroniza carpetas, así que la franja muestra la conexión y la cuota.
 3. **Pestaña Fotos.** El enunciado exige que el álbum funcione sobre la web; el
@@ -124,8 +129,10 @@ Si un contrato cambia, se toca `datos/`, nunca `ui/`.
 
 ## Pendientes
 
-- **node-web debe implementar la pasarela** de `docs/PASARELA.md`. Sin eso, el
-  front solo funciona en modo demostración.
+- **job-api debe implementar `Contrato_HPC`**: aceptar `{ nombre, rutaCodigoFuente,
+  rutaDataset, numeroProcesos, prioridad }` en `POST /jobs` y exponer
+  `GET /cluster/estado`. Hoy pide `comando` y esa ruta responde 500. La pasarela
+  de node-web ya reenvía ambas; no hay que tocarla.
 - **Formato de las rutas del job-api.** El front envía la ruta del archivo
   relativa al Home (`/Código MPI/trapecio.c`). Confirmar con quien lleva el
   gestor si espera esa ruta o el identificador de Storage; se cambia en una

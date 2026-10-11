@@ -8,11 +8,12 @@
  *   DELETE /api/jobs/{id}      -> { id, cancelado }
  *   GET    /api/cluster/estado -> { nodosVivos[], nodosEsperados, cargaPromedio, clusterCompleto, consultadoEn }
  *
- * Diferencia con la app móvil: allí el formulario pide un "comando" de shell
- * porque su HpcRepository es simulado. El job-api real ya NO acepta comandos
- * (auditoría de seguridad: SubmitJobRequest.java); pide el código fuente y el
- * dataset ya subidos a Storage y cuántos procesos MPI usar, y el servidor arma
- * el mpirun. Esta interfaz sigue el contrato real.
+ * Diferencia con la app móvil: allí el formulario pide un "comando" de shell.
+ * Esta interfaz sigue Contrato_HPC: el código fuente y el dataset ya subidos a
+ * Storage y cuántos procesos MPI usar; el servidor arma el mpirun.
+ * OJO: el job-api actual (SubmitJobRequest.java) todavía exige "comando" y no
+ * tiene /cluster/estado, así que enviar y el estado del clúster fallan hasta
+ * que job-api implemente el contrato. Listar y cancelar sí funcionan.
  */
 
 import { pedir } from "../red/clienteApi.js";
