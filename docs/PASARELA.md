@@ -64,7 +64,8 @@ Nginx (`access_log` sin query string en esa ruta).
 | `/api/streaming/**` | `node-media:8083/streaming/**` | Streaming |
 | `/api/jobs`, `/api/jobs/**` | `node-rmi:8082/jobs/**` (HTTPS) | HPC (job-api) |
 | `/api/cluster/**` | `node-rmi:8082/cluster/**` (HTTPS) | HPC (job-api) |
-| `/api/shared-file/**` | *(no existe aún)* | Shared File |
+| `/api/shared-file/**` | `node-repository:8085/shared-file/**` | Shared File |
+| `/monitoreo/**` | `node-monitoreo:3000/monitoreo/**` | Grafana (sin `/api`: es otra aplicación web) |
 
 Requisitos del reenvío:
 
@@ -92,9 +93,9 @@ DELETE /api/storage/archivos/{id}
 GET    /api/storage/cuota
 ```
 
-**Photo Album** (`src/datos/medios.js`)
+**Photo Album** (`src/datos/medios.js`; contrato `Contrato PhotoAlbum.md` del monorepo)
 ```
-GET    /api/album/fotos?pagina=N
+GET    /api/album/fotos?pagina=N&ordenPor=RECIENTES|ALFABETICO
 GET    /api/album/fotos/{id}/miniatura
 GET    /api/album/fotos/{id}/contenido
 POST   /api/album/indexar
@@ -107,7 +108,8 @@ DELETE /api/album/albumes/{id}/fotos/{medioId}
 
 **Streaming** (`src/datos/medios.js`)
 ```
-GET    /api/streaming/catalogo?pagina=N
+GET    /api/streaming/catalogo?pagina=N&ordenPor=RECIENTES|MAS_VISTOS|ALFABETICO
+GET    /api/streaming/{id}/miniatura
 GET    /api/streaming/{id}/sesion             -> { sesionId, manifestUrl: "/streaming/{id}/contenido" }
 GET    /api/streaming/{id}/contenido?access_token=…   (Range)
 ```
@@ -120,21 +122,29 @@ DELETE /api/jobs/{id}
 GET    /api/cluster/estado
 ```
 
-**Shared File** (`src/datos/compartidos.js`; hoy simulado en el front)
+**Shared File** (`src/datos/compartidos.js`)
 ```
 GET    /api/shared-file/compartidos-conmigo
-POST   /api/shared-file/compartir             { archivoId, destinatarioUsuarioId, destinatarioGrupoId, permisoUnix }
+GET    /api/shared-file/que-yo-comparto
+POST   /api/shared-file/compartir             { archivoId, destinatarioTipo, destinatarioId, nivelPermiso }
+POST   /api/shared-file/compartir-directorio  { directorioId, destinatarioTipo, destinatarioId, nivelPermiso }
+PATCH  /api/shared-file/compartir/{id}        { nuevoNivelPermiso }
 DELETE /api/shared-file/compartir/{id}
 ```
 
 **Sonda de vida** (indicador de conexión): `GET /salud`, la que node-web ya expone.
 
-## 4. Lo que cambia en node-web respecto a hoy
+**Sesión:** `POST /api/sesion` responde además `429 DEMASIADOS_INTENTOS` (con
+`Retry-After`) tras 5 contraseñas incorrectas en 15 minutos para ese usuario.
 
-El node-web actual tiene una API propia (`/api/archivos`, `/api/trabajos`…) con
-adaptadores que reescriben las respuestas. Con este front esa capa sobra:
+## 4. Estado en node-web
 
-1. Cambiar los adaptadores de `src/servicios.js` por el reenvío de la tabla 2.
-2. Dejar `POST /api/sesion` y `DELETE /api/sesion` como traducción a SOAP.
-3. Agregar el paso de `access_token` a `Authorization` en `/api/streaming/*/contenido`.
-4. Servir este repositorio como contenido estático (en lugar de `public/`).
+**Hecho.** node-web ya es una pasarela 1 a 1 (`node-web/src/pasarela.js` del
+monorepo): reenvía la tabla 2, traduce solo `POST`/`DELETE /api/sesion` a SOAP,
+pasa `?access_token=` a `Authorization` (y lo quita de la URL y del registro) y
+sirve este repositorio como contenido estático. Además añade cabeceras de
+seguridad (CSP, anti-clickjacking), 404 a rutas ocultas y el límite de intentos
+de login (ver `node-web/README.md`, sección Seguridad).
+
+Pendiente fuera de node-web: job-api todavía no implementa el `POST /jobs` de
+`Contrato_HPC` ni `GET /cluster/estado` (responde 404).

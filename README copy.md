@@ -29,11 +29,11 @@ El contrato completo que node-web debe cumplir está en
 |---|---|---|
 | Authentication | node-soap (SOAP `login`/`logout`) | **Listo** |
 | Distributed Storage | node-repository :8084 | **Listo**: listar, navegar, subir (botón o arrastrando), crear carpeta, descargar, eliminar, cuota |
-| Photo Album | node-media :8083 | **Listo**: rejilla, orden, álbumes, indexar, visor a pantalla completa |
-| Streaming | node-media :8083 | **Listo**: catálogo, búsqueda, reproducción por rangos |
+| Photo Album | node-media :8083 | **Listo**: propio + compartido ("Compartida por …"), orden en el servidor (`ordenPor`), álbumes, miniaturas, visor a pantalla completa. Lo nuevo aparece solo |
+| Streaming | node-media :8083 | **Listo**: catálogo propio + compartido, orden (Recientes, Más vistos, Título), miniaturas reales, búsqueda, reproducción por rangos |
 | HPC | job-api :8082 → gestor RMI | Listar y cancelar: **listo**. Enviar y tarjeta del clúster: **bloqueado** — el front sigue `Contrato_HPC`, pero job-api aún pide `comando` y no tiene `/cluster/estado` (ver Pendientes) |
-| Shared File | — | **Simulado**: el servicio no existe en el backend; la pantalla lo avisa |
-| Monitoreo | Grafana (node-monitoreo) | Abre el tablero en otra pestaña (`URL_MONITOREO`) |
+| Shared File | node-shared-file :8085 | **Listo**: Conmigo / Que comparto, compartir archivos y carpetas, cambiar nivel, dejar de compartir, recompartir; imágenes y videos compartidos se abren en el visor |
+| Monitoreo | Grafana (node-monitoreo), en `/monitoreo/` del mismo origen | Abre el tablero en otra pestaña (`URL_MONITOREO`, por defecto `/monitoreo/`) |
 | File Sync | — | No aplica: el navegador no sincroniza carpetas |
 
 ## Ejecutar
@@ -73,7 +73,7 @@ de origen en `public/ORIGEN.txt`. Los cambios se hacen aquí, no en `public/`.
 Ajustes del despliegue sin tocar código, en `index.html`:
 
 ```html
-<script>window.UPBC_CONFIG = { URL_MONITOREO: "https://10.0.0.26:3000", PERMITIR_DEMO: false }</script>
+<script>window.UPBC_CONFIG = { URL_MONITOREO: "/monitoreo/", PERMITIR_DEMO: false }</script>
 ```
 
 Opciones en `src/config.js`: `API_BASE`, `SHARED_FILE_DISPONIBLE`,
@@ -123,21 +123,22 @@ Si un contrato cambia, se toca `datos/`, nunca `ui/`.
    (`SubmitJobRequest.java`) y rechaza este formulario con 400.
 2. **Franja del inicio.** En el móvil resume File Sync. El navegador no
    sincroniza carpetas, así que la franja muestra la conexión y la cuota.
-3. **Pestaña Fotos.** El enunciado exige que el álbum funcione sobre la web; el
-   móvil aún no tiene esa pantalla.
+3. **Pestaña Fotos.** El enunciado exige que el álbum funcione sobre la web.
 4. **Tile de Monitoreo.** El enunciado pide el monitoreo accesible por web.
 
 ## Pendientes
 
 - **job-api debe implementar `Contrato_HPC`**: aceptar `{ nombre, rutaCodigoFuente,
   rutaDataset, numeroProcesos, prioridad }` en `POST /jobs` y exponer
-  `GET /cluster/estado`. Hoy pide `comando` y esa ruta responde 500. La pasarela
+  `GET /cluster/estado`. Hoy pide `comando` y esa ruta responde 404. La pasarela
   de node-web ya reenvía ambas; no hay que tocarla.
 - **Formato de las rutas del job-api.** El front envía la ruta del archivo
   relativa al Home (`/Código MPI/trapecio.c`). Confirmar con quien lleva el
   gestor si espera esa ruta o el identificador de Storage; se cambia en una
   línea de `src/ui/pantallas/hpc.js`.
-- **Shared File:** cuando exista, poner `SHARED_FILE_DISPONIBLE: true`.
+- **CSP:** node-web sirve la interfaz con una CSP estricta (`script-src 'self'` +
+  hash del script en línea de `index.html`). Si se añade otro `<script>` en línea,
+  node-web debe reiniciarse para recalcular el hash; nada de scripts externos.
 - **Avance de los trabajos:** el contrato de job-api no informa porcentaje; la
   barra de un trabajo en ejecución es indeterminada (en demo sí hay porcentaje).
 
